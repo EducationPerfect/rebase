@@ -20,7 +20,8 @@ export class PullsHelper {
     base: string,
     includeLabels: string[],
     excludeLabels: string[],
-    excludeDrafts: boolean
+    excludeDrafts: boolean,
+    includeOnlyApprovedPRs: boolean
   ): Promise<Pull[]> {
     const [owner, repo] = repository.split('/')
     const params: OctokitTypes.RequestParameters = {
@@ -44,12 +45,14 @@ export class PullsHelper {
                 login
               }
               isDraft
+              isInMergeQueue
               labels(first: 100) {
                 nodes {
                   name
                 }
               }
               maintainerCanModify
+              reviewDecision
             }
           }
         }
@@ -69,6 +72,8 @@ export class PullsHelper {
           // Filter heads from forks where 'maintainer can modify' is false
           (p.node.headRepositoryOwner.login == owner ||
             p.node.maintainerCanModify) &&
+          // Filter out pull requests in merge queues
+          !p.node.isInMergeQueue &&
           // Filter out pull requests that do not have labels in the include list
           (includeLabels.length == 0 ||
             p.node.labels.nodes.some(function (value: Label): boolean {
@@ -81,7 +86,9 @@ export class PullsHelper {
             return !excludeLabels.includes(value.name)
           }) &&
           // Filter out drafts if set to exclude
-          (!excludeDrafts || p.node.isDraft == false)
+          (!excludeDrafts || p.node.isDraft == false) &&
+          // Filter out unapproved PRs if set to exclude
+          (!includeOnlyApprovedPRs || p.node.reviewDecision == 'APPROVED')
         ) {
           return new Pull(
             p.node.baseRefName,
@@ -114,10 +121,12 @@ type Edge = {
       login: string
     }
     isDraft: boolean
+    isInMergeQueue: boolean
     labels: {
       nodes: Label[]
     }
     maintainerCanModify: boolean
+    reviewDecision: string
   }
 }
 
