@@ -20,6 +20,8 @@ async function run(): Promise<void> {
       includeLabels: utils.getInputAsArray('include-labels'),
       excludeLabels: utils.getInputAsArray('exclude-labels'),
       excludeDrafts: core.getInput('exclude-drafts') === 'true',
+      includeOnlyApprovedPRs:
+        core.getInput('include-only-approved-prs') === 'true',
       rebaseOptions: utils.getInputAsArray('rebase-options')
     }
     core.debug(`Inputs: ${inspect(inputs)}`)
@@ -34,7 +36,8 @@ async function run(): Promise<void> {
       inputs.base,
       inputs.includeLabels,
       inputs.excludeLabels,
-      inputs.excludeDrafts
+      inputs.excludeDrafts,
+      inputs.includeOnlyApprovedPRs
     )
 
     if (pulls.length > 0) {

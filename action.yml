@@ -24,6 +24,9 @@ inputs:
   exclude-drafts:
     description: 'Exclude draft pull requests'
     default: false
+  include-only-approved-prs:
+    description: 'Only rebase approved PRs'
+    default: false
   rebase-options:
     description: 'A comma or newline separated list of options to pass to the git rebase command. For example, `-Xtheirs`.'
 runs:
