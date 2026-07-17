@@ -400,12 +400,13 @@ function run() {
                 includeLabels: utils.getInputAsArray('include-labels'),
                 excludeLabels: utils.getInputAsArray('exclude-labels'),
                 excludeDrafts: core.getInput('exclude-drafts') === 'true',
+                includeOnlyApprovedPRs: core.getInput('include-only-approved-prs') === 'true',
                 rebaseOptions: utils.getInputAsArray('rebase-options')
             };
             core.debug(`Inputs: ${(0, util_1.inspect)(inputs)}`);
             const [headOwner, head] = inputValidator.parseHead(inputs.head);
             const pullsHelper = new pulls_helper_1.PullsHelper(inputs.token);
-            const pulls = yield pullsHelper.get(inputs.repository, head, headOwner, inputs.base, inputs.includeLabels, inputs.excludeLabels, inputs.excludeDrafts);
+            const pulls = yield pullsHelper.get(inputs.repository, head, headOwner, inputs.base, inputs.includeLabels, inputs.excludeLabels, inputs.excludeDrafts, inputs.includeOnlyApprovedPRs);
             if (pulls.length > 0) {
                 core.info(`${pulls.length} pull request(s) found.`);
                 // Checkout
@@ -495,7 +496,7 @@ class PullsHelper {
             baseUrl: process.env['GITHUB_API_URL'] || 'https://api.github.com'
         });
     }
-    get(repository, head, headOwner, base, includeLabels, excludeLabels, excludeDrafts) {
+    get(repository, head, headOwner, base, includeLabels, excludeLabels, excludeDrafts, includeOnlyApprovedPRs) {
         return __awaiter(this, void 0, void 0, function* () {
             const [owner, repo] = repository.split('/');
             const params = {
@@ -521,12 +522,14 @@ class PullsHelper {
                 login
               }
               isDraft
+              isInMergeQueue
               labels(first: 100) {
                 nodes {
                   name
                 }
               }
               maintainerCanModify
+              reviewDecision
             }
           }
         }
@@ -545,6 +548,8 @@ class PullsHelper {
                     // Filter heads from forks where 'maintainer can modify' is false
                     (p.node.headRepositoryOwner.login == owner ||
                         p.node.maintainerCanModify) &&
+                    // Filter out pull requests in merge queues
+                    !p.node.isInMergeQueue &&
                     // Filter out pull requests that do not have labels in the include list
                     (includeLabels.length == 0 ||
                         p.node.labels.nodes.some(function (value) {
@@ -557,7 +562,9 @@ class PullsHelper {
                         return !excludeLabels.includes(value.name);
                     }) &&
                     // Filter out drafts if set to exclude
-                    (!excludeDrafts || p.node.isDraft == false)) {
+                    (!excludeDrafts || p.node.isDraft == false) &&
+                    // Filter out unapproved PRs if set to exclude
+                    (!includeOnlyApprovedPRs || p.node.reviewDecision == 'APPROVED')) {
                     return new Pull(p.node.baseRefName, p.node.headRepository.url, p.node.headRepository.nameWithOwner, p.node.headRefName);
                 }
             })
